@@ -45,6 +45,19 @@ class SQL extends PDO {
 
 /** Главный класс проекта */
 class avto extends SQL{
+
+    /** Размер ширины фото авто на главной странце */
+    const PhotoSizeMainPage = "140";
+
+    /** Размер ширины фото авто на странце объявления */
+    const PhotoSizeAvtoPage = "720";
+
+    /** Имя каталога со всеми картинками */
+    const PhotoMainDirName = "images";
+
+    /** Имя каталога с шаблонами картинок*/
+    const PhotoTemplateDirName = "templates";
+    
     
     /** Конструктор класса */
     public function __construct() {
@@ -53,6 +66,41 @@ class avto extends SQL{
                 
     }
     
+    /** Функция осуществляет проверку наличия фото и возвращает полное имя файла 
+     * фотографии в зависимости от переданных параметров и наличия фото 
+     * @param $photoName - имя фото в mysql базе, $size - размер изображения
+     * @return полное имя файла с путём
+     */
+    public function getPhotoName($photoName, $size = avto::PhotoSizeMainPage) {
+        
+        // Проверка на правильность передачи второго аргумента
+        if (($size != avto::PhotoSizeMainPage) && ($size != avto::PhotoSizeAvtoPage)) {
+            $size = avto::PhotoSizeMainPage;
+        }
+       
+        $photoPrefix = avto::PhotoMainDirName .'/size'.$size;
+        $photoTemplatePrefix = avto::PhotoMainDirName.'/'.avto::PhotoTemplateDirName.'/size'.$size;
+        
+        // файл не загружен в базу
+        if ($photoName == "") {
+            return $photoTemplatePrefix.'/notuploaded.png'; 
+        }
+
+        $fullFileName = $photoPrefix.'/'.$photoName;
+        
+        // проверка наличия и размера файла
+        if(file_exists($fullFileName)){
+            if (filesize($fullFileName) > 0) {
+                return $fullFileName;
+            }
+        }
+        
+        return $photoTemplatePrefix.'/notfound.png'; 
+        
+    }
+    
+    /** Генерируем главную страницу 
+    */
     public function getMainPage() {
         
         $ret = $this->query("select id, brand, model, price, photoname, SUBSTR(description, 1, 250) as shortDesc from avto");
@@ -65,10 +113,42 @@ class avto extends SQL{
         }
         
     }
+
+    /** Генерируем страницу ошибки
+     * @param $errorMessage - ошибка
+     */
+    public function getErrorPage($errorMessage) {
+        include('template/errorpage.php');
+    }
+    
+    
+    /** Генерируем страницу объявления
+     * @param $avtoId - id - объявления
+     */
+    public function getAvtoPage($id) {
+        
+        // не передан id - возвращаем страницу с ошибкой
+        if(!$id){
+            $this->getErrorPage('Объявление не найдено!');
+        } else {
+        
+            $ret = $this->query("select * from avto where id=?",$id);
+
+            // запрос выполнен
+            if ($ret){
+                
+                include('template/avtopage.php');
+
+            }
+            
+        }
+        
+    }
+    
     
 }
 
 $avto = new avto();
 /** Установку атрибутов перенести в класс */
 //$avto->setAttribute();
-$avto->getMainPage();
+$avto->getAvtoPage(1);
