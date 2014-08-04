@@ -71,7 +71,7 @@ class avto extends SQL{
      * @param $photoName - имя фото в mysql базе, $size - размер изображения
      * @return полное имя файла с путём
      */
-    public function getPhotoName($photoName, $size = avto::PhotoSizeMainPage) {
+    public function checkPhoto($photoName, $size = avto::PhotoSizeMainPage) {
         
         // Проверка на правильность передачи второго аргумента
         if (($size != avto::PhotoSizeMainPage) && ($size != avto::PhotoSizeAvtoPage)) {
@@ -123,7 +123,7 @@ class avto extends SQL{
     
     
     /** Генерируем страницу объявления
-     * @param $avtoId - id - объявления
+     * @param $id - объявления
      */
     public function getAvtoPage($id) {
         
@@ -132,8 +132,11 @@ class avto extends SQL{
             $this->getErrorPage('Объявление не найдено!');
         } else {
         
-            $ret = $this->query("select * from avto where id=?",$id);
+            // хороший способ с GROUP_CONCAT работает только в mysql, но ведь база может быть не в mysql
+            //$ret = $this->query("SELECT a.*, GROUP_CONCAT(c.name) as colors FROM avto as a join avto_color as ac on (a.id = ac.avto_id) join color as c on (ac.color_id = c.id) where a.id=?", $id);
 
+            $ret = $this->query("SELECT a.*, c.name as color FROM avto as a left join avto_color as ac on (a.id = ac.avto_id) left join color as c on (ac.color_id = c.id) where a.id=?", $id);
+            
             // запрос выполнен
             if ($ret){
                 
@@ -145,10 +148,40 @@ class avto extends SQL{
         
     }
     
+    /** Функция проверяет наличие команды в action и в зависимости от результатов запускает вывод нужной страницы
+     *  По умолчанию или неверных параметрах выводится главная страница
+     */
+    public function checkAction() {
+        
+        $request_method = filter_input(\INPUT_SERVER, 'REQUEST_METHOD', \FILTER_SANITIZE_SPECIAL_CHARS);
+        switch($request_method)
+        {
+            case 'GET': $input = INPUT_GET; break;
+            case 'POST': $input = INPUT_POST; break;
+            default : 
+                $this->getMainPage(); 
+                return;
+        }
+        
+        $action = filter_input($input, 'action', \FILTER_SANITIZE_SPECIAL_CHARS);
+        switch($action)
+        {
+            case 'showavto':  
+                $id = filter_input($input, 'id', FILTER_VALIDATE_INT, 
+                                   array("options" => array("min_range" => 1)));
+                $this->getAvtoPage($id);
+                break;
+            
+            default : 
+                $this->getMainPage(); 
+                return;
+        }
+        
+    }
     
 }
 
 $avto = new avto();
-/** Установку атрибутов перенести в класс */
-//$avto->setAttribute();
-$avto->getAvtoPage(1);
+//$avto->getAvtoPage(1);
+$avto->checkAction();
+//$avto->getMainPage();
