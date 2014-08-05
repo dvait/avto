@@ -5,12 +5,10 @@
         <title>Главная страница</title>
     </head>
     <body>
-        <div><a href="index.php?action=addavto">Добавить объявление</a><br><br></div>
+        <div><a href="index.php?action=getpageaddavto">Добавить объявление</a><br><br></div>
         <?php
 
         //$new_name = strtolower(substr(md5(time()*mktime()*rand()), 0, 26));
-        
-        //echo $new_name;
         
         while ($row = $ret->fetch())
             {

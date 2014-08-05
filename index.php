@@ -1,5 +1,8 @@
 <?php
 
+include('include/img_resize.php');
+
+
 class SQL extends PDO {
     
     /** Параметры подключения к БД, для простоты представлены в виде констант в этом классе */
@@ -58,6 +61,37 @@ class avto extends SQL{
     /** Имя каталога с шаблонами картинок*/
     const PhotoTemplateDirName = "templates";
     
+    /** Аргументы для filter_*_array
+     *  Здесь перечисляются все передаваемые формой поля и 
+     *  способы их фильтрации  */
+    private $args = array(
+        'error'           => array(
+                                'filter' => \FILTER_SANITIZE_SPECIAL_CHARS,
+                                'flags'  => \FILTER_REQUIRE_ARRAY,
+                             ),
+        'brand'           => \FILTER_SANITIZE_SPECIAL_CHARS,
+        'model'           => \FILTER_SANITIZE_SPECIAL_CHARS,
+        'price'           => array (
+                                'filter' => \FILTER_SANITIZE_NUMBER_FLOAT,
+                                'flags'  => \FILTER_FLAG_ALLOW_FRACTION),
+        'typeofcarbody'   => \FILTER_SANITIZE_SPECIAL_CHARS,
+        'colors'          => array(
+                                'filter' => \FILTER_VALIDATE_INT,
+                                'flags'  => \FILTER_REQUIRE_ARRAY,
+                             ),
+        'description'     => \FILTER_SANITIZE_STRING
+    );
+    
+    /** Поля обязательные для заполнения, текст ошибки в случае пустого поля
+     * 
+     */
+    
+    private $checkemptyfield = array(
+        'brand' => 'Не заполнено обязательное поле \'Марка\'',
+        'model' => 'Не заполнено обязательное поле \'Модель\'',
+        'price' => 'Не заполнено обязательное поле \'Цена\'',
+        'colors' => 'Не выбраны цвета'
+    );
     
     /** Конструктор класса */
     public function __construct() {
@@ -68,8 +102,8 @@ class avto extends SQL{
     
     /** Функция осуществляет проверку наличия фото и возвращает полное имя файла 
      * фотографии в зависимости от переданных параметров и наличия фото 
-     * @param $photoName - имя фото в mysql базе, $size - размер изображения
-     * @return полное имя файла с путём
+     * @param type $photoName - имя фото в mysql базе, $size - размер изображения
+     * @return string полное_имя_файла с путём
      */
     public function checkPhoto($photoName, $size = avto::PhotoSizeMainPage) {
         
@@ -82,7 +116,7 @@ class avto extends SQL{
         $photoTemplatePrefix = avto::PhotoMainDirName.'/'.avto::PhotoTemplateDirName.'/size'.$size;
         
         // файл не загружен в базу
-        if ($photoName == "") {
+        if (empty($photoName)) {
             return $photoTemplatePrefix.'/notuploaded.png'; 
         }
 
@@ -96,6 +130,61 @@ class avto extends SQL{
         }
         
         return $photoTemplatePrefix.'/notfound.png'; 
+        
+    }
+    
+    /** Добавляем объявление в базу
+     * 
+     */
+    public function addAvto() {
+
+
+    $error = array();
+    
+    $myinputs = filter_input_array(INPUT_POST, $this->args);
+
+    // Проверяем заполнение полей
+    foreach ($this->checkemptyfield as $key => $value) {
+        
+        if (empty($myinputs[$key])) {
+            $error[] = $value;
+        }
+        
+    }
+    
+    if (!empty($error)) {
+        $_SESSION['sendForm'] = $myinputs;
+        $_SESSION['sendForm']['error'] = $error;
+        
+        header('Location: index.php?action=getpageaddavto');
+    } else {
+    
+        // Если передан файл с картинкой - делаем миниатюры
+        print_r($_FILES);
+        
+        $uploadedfile = $_FILES["avtopicture"];
+        
+        if (($uploadedfile["error"] == 0) && ($uploadedfile["size"] > 0)){
+
+            $new_name = strtolower(substr(md5(time()*mktime()*rand()), 0, 26));
+            
+            //$resize = new resize($uploadedfile["tmp_name"],$uploadedfile["type"]);
+            //$resize->resizeImage(140, 100, 'exact');
+            //$resize->saveImage(avto::PhotoMainDirName .'/size140/'.$new_name.'.jpg', 65);
+
+            
+            img_resize($uploadedfile["tmp_name"], avto::PhotoMainDirName .'/size140/'.$new_name.'.jpg', 720, 540);
+           
+        }
+        
+        
+        //unset($_SESSION['sendForm']);
+    }
+// Для получения цветов
+//$test = $_POST['param'];
+//foreach ($test as $t){
+//    echo 'You selected '.$t.'<br />';
+//}       
         
     }
     
@@ -147,6 +236,16 @@ class avto extends SQL{
         }
         
     }
+
+    /** Генерируем страницу добавления объявления
+     */
+    public function getAddAvtoPage() {
+
+        // получаем список цветов из sql
+        $ret = $this->query("select * from color");
+        
+        include('template/addavtopage.php');
+    }
     
     /** Функция проверяет наличие команды в action и в зависимости от результатов запускает вывод нужной страницы
      *  По умолчанию или неверных параметрах выводится главная страница
@@ -167,9 +266,19 @@ class avto extends SQL{
         switch($action)
         {
             case 'showavto':  
-                $id = filter_input($input, 'id', FILTER_VALIDATE_INT, 
+                $id = filter_input($input, 'id', \FILTER_VALIDATE_INT, 
                                    array("options" => array("min_range" => 1)));
                 $this->getAvtoPage($id);
+                break;
+
+            case 'getpageaddavto': 
+                session_start(); 
+                $this->getAddAvtoPage();
+                break;
+
+            case 'addavto': 
+                session_start(); 
+                $this->addAvto();
                 break;
             
             default : 
@@ -184,4 +293,5 @@ class avto extends SQL{
 $avto = new avto();
 //$avto->getAvtoPage(1);
 $avto->checkAction();
+//$avto->getAddAvtoPage();
 //$avto->getMainPage();
