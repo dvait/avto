@@ -32,8 +32,8 @@ class SQL extends PDO {
         $reponse = parent::prepare($query);
         
         if (!$reponse) {
-            echo "\nPDO::errorInfo():\n";
-            print_r(parent::errorInfo());
+            //echo "\nPDO::errorInfo():\n";
+            //print_r(parent::errorInfo());
         } else {
             $reponse->execute($args);
         }
@@ -50,8 +50,8 @@ class SQL extends PDO {
         $reponse = parent::prepare($query);
         
         if (!$reponse) {
-            echo "\nPDO::errorInfo():\n";
-            print_r(parent::errorInfo());
+//            echo "\nPDO::errorInfo():\n";
+//            print_r(parent::errorInfo());
         } else {
             $reponse->execute($args);
         }
@@ -360,7 +360,13 @@ class avto {
             // наверняка придётся использовать какие-то условия (WHERE) в запросе в дальнейшем, 
             // а такая конструкция работает быстрее чем
             // $rows = $this->dbh->query("select count(*) as rows from avto")->fetch()['rows'];
-            $rows = $this->dbh->query("select FOUND_ROWS() as rows")->fetch()['rows'];
+            $retrows = $this->dbh->query("select FOUND_ROWS() as rows");
+            if ($retrows){
+                $rows = $retrows->fetch()['rows'];
+            } else {
+                $this->getErrorPage('Произошла ошибка при работе с базой данных!');
+                return false;
+            }
             include('template/mainpage.php');
         } else {
             $this->getErrorPage('Произошла ошибка при работе с базой данных!');
