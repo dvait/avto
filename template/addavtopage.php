@@ -35,19 +35,18 @@
             <label for="price">* Цена:</label>
             <input type="text" name="price" size="30" value="<?php echo $myinputs['price'];?>"> руб.
             <br><br>
-            <label for="typeofcarbody">Тип кузова:</label>
-            <input type="text" name="typeofcarbody" size="50" value="<?php echo $myinputs['typeofcarbody'];?>">
+            <label for="typecarbody">Тип кузова:</label>
+            <input type="text" name="typecarbody" size="50" value="<?php echo $myinputs['typecarbody'];?>">
             <br><br>
             <label for="colors[]">* Цвета:</label>
             <select name="colors[]" multiple="multiple" size="10">
             <?php
-                if (isset($ret)) {
-                    while ($row = $ret->fetch())
-                    {
-                        //if($row->id)
-                        printf("            <option value=\"%s\" %s>%s</option>".PHP_EOL,
-                                $row->id, (in_array($row->id, $myinputs['colors']) ? "selected" : ""), $row->name);
-                    }
+                //$ret = $this->dbh->query("select * from color");
+
+                while ($row = $ret->fetch())
+                {
+                    printf("            <option value=\"%s\" %s>%s</option>".PHP_EOL,
+                            $row['id'], (in_array($row['id'], $myinputs['colors']) ? "selected" : ""), $row['name']);
                 }
             ?>
             </select>
