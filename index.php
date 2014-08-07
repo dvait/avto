@@ -200,7 +200,8 @@ class SQL extends PDO {
             // $rows = $this->dbh->query("select count(*) as rows from avto")->fetch()['rows'];
             $retrows = $this->query("select FOUND_ROWS() as rows");
             if ($retrows){
-                return $retrows->fetch()['rows'];
+                $fetchret = $retrows->fetch();
+                return $fetchret['rows'];
             } else {
                 return $this->getErrorPage();
             }
