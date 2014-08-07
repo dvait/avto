@@ -7,3 +7,5 @@ include('include/avto.php');
 
 // создаём главный класс
 $avto = new avto();
+
+?>
