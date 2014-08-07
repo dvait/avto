@@ -6,6 +6,6 @@ include('include/sql.php');
 include('include/avto.php');
 
 // создаём главный класс
-$avto = new avto();
+new avto();
 
 ?>
