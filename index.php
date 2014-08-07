@@ -58,6 +58,174 @@ class SQL extends PDO {
         return $reponse;
     }
     
+    /** Генерируем страницу ошибки
+     * @param $errorMessage - ошибка
+     */
+    public function getErrorPage() {
+        $errorMessage = "Произошла ошибка при работе с базой данных.";
+        include('template/errorpage.php');
+        return false;
+    }
+
+    /** Функция возвращает массив id всех цветов из базы
+     *  В случае ошибки - false
+     * @return array|boolean
+     */
+    public function sqlGetColorsId() {
+
+        // получаем список цветов из sql в массив
+        $ret = $this->query("select id from color");
+        
+        if ($ret) {
+            return $ret->fetchAll(PDO::FETCH_COLUMN, 0);
+        } else {
+            return $this->getErrorPage();
+        }
+    }
+
+    /** Функция возвращает массив id и имен всех цветов из базы
+     *  В случае ошибки - false
+     * @return array|boolean
+     */
+    public function sqlGetColors() {
+        
+        $ret = $this->query("select * from color");
+        if ($ret) {
+            return $ret;
+        } else {
+            return $this->getErrorPage();
+        }
+    }
+    
+    /** Функция производит добавление в базу нового объявления
+     * 
+     * @param array $myinputs - массив с значением полей объявления
+     * @param string $savedFileName - имя файла картинки
+     * @return boolean
+     */
+    public function sqlAddAvto($myinputs, $savedFileName) {
+        
+        $checkMaxLenFileds = array(
+            'brand' => 50,
+            'model' => 50,
+            'price' => 30,
+            'typecarbody' => 50,
+            'description' => 5000
+        );
+
+        // Начинаем генерировать sql запрос добавления в базу
+
+        $sql = "insert into avto set ";
+        $sqlargs = array();
+
+        foreach ($checkMaxLenFileds as $key => $value) {
+
+            if (strlen($myinputs[$key]) > $value) {
+                $myinputs[$key] = substr($myinputs[$key], 0, $value);
+            }
+            if ($myinputs[$key]) {
+                $sql .= "$key=?, ";
+                $sqlargs[] = $myinputs[$key];
+            }
+        }
+
+        if ($savedFileName) {
+            $sql .= "photoname=?";
+            $sqlargs[] = $savedFileName;
+        }
+
+        $sql = trim($sql, ", ");
+
+        $ret = $this->queryArgs($sql, $sqlargs);
+
+        if ($ret){
+           return $this->lastInsertId();
+        } else {
+            return $this->getErrorPage();
+        }
+    }
+    
+    /** Функция добавляет цвета по объявлению в таблицу цветов
+     * 
+     * @param array $colors - массив id цветов для добавления
+     * @param string $avtoInsertId - id объявления
+     * @return boolean
+     */
+    public function sqlAddColors($colors, $avtoInsertId){
+        
+        if (!$avtoInsertId) {
+            return false;
+        }
+
+        // добавляем данные в таблицу соответствия цветов и объявлений
+        foreach ($colors as $color) {
+            $retAvtoColor = $this->query("insert into avto_color set avto_id=?, color_id=?", $avtoInsertId, $color);
+
+            if (!$retAvtoColor) {
+                return $this->getErrorPage();
+            }
+        }
+
+        return $retAvtoColor;
+            
+    }
+
+    /** Функция возвращает результат select'a для главной страницы
+     * 
+     * @param int $page - номер страницы
+     * @param type $limit - количество объявлений на страницу
+     * @return type
+     */
+    public function sqlSelectForMainPage($page, $limit) {
+        
+        $start = ($page - 1) * $limit;
+        
+        $ret = $this->query("select SQL_CALC_FOUND_ROWS id, brand, model, price, photoname, SUBSTR(description, 1, 250) as shortDesc from avto LIMIT ?, ?", $start, $limit);
+
+        if ($ret) {
+            return $ret;
+        } else {
+            return $this->getErrorPage();
+        }
+    }
+    
+    /** Функция возвращает количество записей в базе avto
+     * 
+     * @return int|boolean
+     */
+    public function sqlGetFoundRows() {
+            // SQL_CALC_FOUND_ROWS и FOUND_ROWS() использованы с расчётом на будущее,
+            // наверняка придётся использовать какие-то условия (WHERE) в запросе в дальнейшем, 
+            // а такая конструкция работает быстрее чем
+            // $rows = $this->dbh->query("select count(*) as rows from avto")->fetch()['rows'];
+            $retrows = $this->query("select FOUND_ROWS() as rows");
+            if ($retrows){
+                return $retrows->fetch()['rows'];
+            } else {
+                return $this->getErrorPage();
+            }
+    }
+    
+    /** Функция получения данных по объвлению из базы по id
+     * 
+     * @param int $id - id объявления
+     * @return array|boolean
+     */
+    public function sqlGetSelectForAvtoPage($id){
+
+        // хороший способ с GROUP_CONCAT работает только в mysql, но ведь база может быть не в mysql
+        //$ret = $this->query("SELECT a.*, GROUP_CONCAT(c.name) as colors FROM avto as a join avto_color as ac on (a.id = ac.avto_id) join color as c on (ac.color_id = c.id) where a.id=?", $id);
+
+        $ret = $this->query("SELECT a.*, c.name as color FROM avto as a left join avto_color as ac on (a.id = ac.avto_id) left join color as c on (ac.color_id = c.id) where a.id=?", $id);
+
+        if ($ret) {
+            return $ret;
+        } else {
+            return $this->getErrorPage();
+        }
+        
+    }
+    
 }
 
 /** Главный класс проекта */
@@ -119,24 +287,25 @@ class avto {
         'colors' => 'Не выбраны цвета'
     );
     
-    /** Список полей добавляемых в базу и максимальная длина поля
-     *
-     * @var array 
-     */
-    private $checkMaxLenFileds = array(
-        'brand' => 50,
-        'model' => 50,
-        'price' => 30,
-        'typecarbody' => 50,
-        'description' => 5000
-    );
-    
     /** Конструктор класса */
     public function __construct() {
         
-        $this->dbh = new SQL();
-        $this->checkAction();
+        try {
+            $this->dbh = new SQL();
+        }
+        catch (Exception $e) {
+            $this->getErrorPage('Произошла ошибка при подключении к базе.');
+            return false;
+        }
         
+        $this->checkAction();
+    }
+
+    /** Генерируем страницу ошибки
+     * @param $errorMessage - ошибка
+     */
+    public function getErrorPage($errorMessage) {
+        include('template/errorpage.php');
     }
     
     /** Функция осуществляет проверку наличия фото и возвращает полное имя файла 
@@ -179,13 +348,15 @@ class avto {
      */
     private function checkColors($colors) {
 
-        // получаем список цветов из sql в массив
-        $ret = $this->dbh->query("select id from color");
-        $result = $ret->fetchAll(PDO::FETCH_COLUMN, 0);
-
+        $allColors = $this->dbh->sqlGetColorsId();
+        
+        if(!$allColors) { 
+            return false;
+        }
+        
         // Если количество переданных цветов, больше, чем есть в sql, 
         // то даже проверять не будем их соответствие
-        if (count($colors) > count($result)) {
+        if (count($colors) > count($allColors)) {
             return false;
         }
         
@@ -193,10 +364,9 @@ class avto {
         foreach ($colors as $value) {
         
             // Если цвета нет в sql - сразу выход
-            if (!in_array($value, $result)){
+            if (!in_array($value, $allColors)){
                 return false;
             }
-            //array_key_exists
         }
         
         return true;
@@ -246,6 +416,8 @@ class avto {
                 $res2 = $resize->saveImage($fullFileNameAvtoPage, 65);
             }
             
+            unset($resize);
+            
             // только если обе картинки не загрузились возвращаем false, иначе имя файла
             if ((!$res) && (!$res2)) {
                 return false;
@@ -270,16 +442,18 @@ class avto {
         // Проверяем цвета на соответствие в базе
         
         if (!$this->checkColors($myinputs['colors'])) {
-            $error[] = "Да вы, батенька, хакер!";
+            $error[] = "Ошибка при проверке цветов.";
         }
         
-        // Проверяем заполнение полей
-        foreach ($this->checkEmptyFields as $key => $value) {
+        if (empty($error)) {
+            // Проверяем заполнение полей
+            foreach ($this->checkEmptyFields as $key => $value) {
 
-            if (empty($myinputs[$key])) {
-                $error[] = $value;
+                if (empty($myinputs[$key])) {
+                    $error[] = $value;
+                }
+
             }
-
         }
 
         if (!empty($error)) {
@@ -292,54 +466,18 @@ class avto {
             // Если передан файл с картинкой - делаем миниатюры
             $savedFileName = $this->resizeAndSaveImage($_FILES["avtopicture"]);
             
-            // Начинаем генерировать sql запрос добавления в базу
+            $avtoId = $this->dbh->sqlAddAvto($myinputs, $savedFileName);
 
-            $sql = "insert into avto set ";
-            $sqlargs = array();
-            
-            foreach ($this->checkMaxLenFileds as $key => $value) {
-            
-                if (strlen($myinputs[$key]) > $value) {
-                    $myinputs[$key] = substr($myinputs[$key], 0, $value);
-                }
-                if ($myinputs[$key]) {
-                    $sql .= "$key=?, ";
-                    $sqlargs[] = $myinputs[$key];
-                }
-            }
-            
-            if ($savedFileName) {
-                $sql .= "photoname=?";
-                $sqlargs[] = $savedFileName;
-            }
-
-            $sql = trim($sql, ", ");
-            
-            $ret = $this->dbh->queryArgs($sql, $sqlargs);
-
-            // запрос успешно выполнен
-            if ($ret) {
-                $lastInsertId = $this->dbh->lastInsertId();
-                
-                if ($lastInsertId) {
-                    // добавляем данные в таблицу соответствия цветов и объявлений
-                    foreach ($myinputs['colors'] as $color) {
-                        $retAvtoColor = $this->dbh->query("insert into avto_color set avto_id=?, color_id=?", $lastInsertId, $color);
-                    
-                        if (!$retAvtoColor) {
-                            $this->getErrorPage('Произошла ошибка при добавлении цветов авто!');
-                            return false;
-                        }
-                    }
-                }
-                
+            // запрос успешно выполнен - добвляем в базу цвета
+            if ($avtoId) {
+                $ret2 = $this->dbh->sqlAddColors($myinputs['colors'], $avtoId);
+                if (!$ret2) { return false; }
             } else {
-                $this->getErrorPage('Произошла ошибка. Объявление в базу не добавлено!');
                 return false;
             }        
             
             unset($_SESSION['sendForm']);
-            $this->getSuccessAddAvtoPage($lastInsertId);
+            $this->getSuccessAddAvtoPage($avtoId);
             return true;
         }
     }
@@ -350,38 +488,15 @@ class avto {
      */
     public function getMainPage($curPage = 1) {
 
-        $start = ($curPage - 1) * avto::MainRowsPerPageLimit;
+        // переменная используется в include
+        $ret = $this->dbh->sqlSelectForMainPage($curPage, avto::MainRowsPerPageLimit);
         
-        $ret = $this->dbh->query("select SQL_CALC_FOUND_ROWS id, brand, model, price, photoname, SUBSTR(description, 1, 250) as shortDesc from avto LIMIT ?, ?", $start, avto::MainRowsPerPageLimit);
-        
-        // запрос выполнен
         if ($ret){
-            // SQL_CALC_FOUND_ROWS и FOUND_ROWS() использованы с расчётом на будущее,
-            // наверняка придётся использовать какие-то условия (WHERE) в запросе в дальнейшем, 
-            // а такая конструкция работает быстрее чем
-            // $rows = $this->dbh->query("select count(*) as rows from avto")->fetch()['rows'];
-            $retrows = $this->dbh->query("select FOUND_ROWS() as rows");
-            if ($retrows){
-                $rows = $retrows->fetch()['rows'];
-            } else {
-                $this->getErrorPage('Произошла ошибка при работе с базой данных!');
-                return false;
-            }
+            $rows = $this->dbh->sqlGetFoundRows();
             include('template/mainpage.php');
-        } else {
-            $this->getErrorPage('Произошла ошибка при работе с базой данных!');
-            return false;
         }        
-        
     }
 
-    /** Генерируем страницу ошибки
-     * @param $errorMessage - ошибка
-     */
-    public function getErrorPage($errorMessage) {
-        include('template/errorpage.php');
-    }
-    
     
     /** Генерируем страницу объявления
      * @param $id - объявления
@@ -392,21 +507,12 @@ class avto {
         if(!$id){
             $this->getErrorPage('Объявление не найдено!');
         } else {
-            // хороший способ с GROUP_CONCAT работает только в mysql, но ведь база может быть не в mysql
-            //$ret = $this->query("SELECT a.*, GROUP_CONCAT(c.name) as colors FROM avto as a join avto_color as ac on (a.id = ac.avto_id) join color as c on (ac.color_id = c.id) where a.id=?", $id);
 
-            $ret = $this->dbh->query("SELECT a.*, c.name as color FROM avto as a left join avto_color as ac on (a.id = ac.avto_id) left join color as c on (ac.color_id = c.id) where a.id=?", $id);
-
-            // запрос выполнен
+            $ret = $this->dbh->sqlGetSelectForAvtoPage($id);
             if ($ret){
                 include('template/avtopage.php');
-            } else {
-                $this->getErrorPage("Ошибка при работе с базой данных.");
-                return;
             } 
-
-        }
-        
+        }        
     }
 
     /** Генерируем страницу успешного добавления объявления
@@ -419,12 +525,9 @@ class avto {
     public function getAddAvtoPage() {
 
         // получаем список цветов из sql
-        $ret = $this->dbh->query("select * from color");
+        $ret = $this->dbh->sqlGetColors();
         if ($ret) {
             include('template/addavtopage.php');
-        } else {
-            $this->getErrorPage("Ошибка при работе с базой данных.");
-            return;
         }
     }
     
