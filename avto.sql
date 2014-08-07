@@ -26,3 +26,16 @@ CREATE TABLE IF NOT EXISTS `color` (
   `name` varchar(50) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8;
+
+TRUNCATE TABLE `color`;
+
+INSERT INTO `color` (`id`, `name`) VALUES
+(1, 'Черный'),
+(2, 'Синий'),
+(3, 'Красный'),
+(4, 'Фиолетовый'),
+(5, 'Зеленый'),
+(6, 'Голубой'),
+(7, 'Серый'),
+(8, 'Желтый'),
+(9, 'Белый');
