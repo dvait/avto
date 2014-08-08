@@ -120,7 +120,7 @@ class avto {
      */
     private function checkColors($colors) {
 
-        $allColors = $this->dbh->sqlGetColorsId();
+        $allColors = $this->dbh->sqlGetColors(true);
         
         if(!$allColors) { 
             return false;

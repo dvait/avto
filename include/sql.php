@@ -64,31 +64,26 @@ class SQL extends PDO {
         return false;
     }
 
-    /** Функция возвращает массив id всех цветов из базы
-     *  В случае ошибки - false
+    /** Функция возвращает массив id и имен всех цветов из базы или массив id всех цветов из базы
+     *  в зависимости от параметра $onlyIds   В случае ошибки - false
+     * @param boolean $onlyIds - получить только id
      * @return array|boolean
      */
-    public function sqlGetColorsId() {
-
-        // получаем список цветов из sql в массив
-        $ret = $this->query("select id from color");
+    public function sqlGetColors($onlyIds = false) {
         
-        if ($ret) {
-            return $ret->fetchAll(PDO::FETCH_COLUMN, 0);
+        if ($onlyIds) {
+            // получаем список цветов из sql в массив
+            $ret = $this->query("select id from color");
         } else {
-            return $this->getErrorPage();
+            $ret = $this->query("select * from color");
         }
-    }
 
-    /** Функция возвращает массив id и имен всех цветов из базы
-     *  В случае ошибки - false
-     * @return array|boolean
-     */
-    public function sqlGetColors() {
-        
-        $ret = $this->query("select * from color");
         if ($ret) {
-            return $ret;
+            if ($onlyIds) {
+                return $ret->fetchAll(PDO::FETCH_COLUMN, 0);
+            } else {
+                return $ret;
+            }
         } else {
             return $this->getErrorPage();
         }
